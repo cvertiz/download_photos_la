@@ -3,6 +3,10 @@ const { Upload } = require("@aws-sdk/lib-storage"); // Importar Upload
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const archiver = require("archiver");
 const stream = require("stream");
+const global_config = require("./config/settings.js");
+const { Client } = require("pg");
+const connectionParams = global_config.connectionParams;
+
 
 const s3 = new S3Client({ region: "us-east-2" });
 
@@ -13,10 +17,16 @@ exports.handler = async (event) => {
 
     const files = ["foto1.jpg", "foto2.jpg"].map(file => `${folder}/${file}`);
 
+    console.log(connectionParams)
 
     console.log("🚀 Iniciando proceso...");
+    const client = new Client(connectionParams); 
 
     try {
+        await client.connect();
+
+        console.log("🔌 Conectado a PostgreSQL");
+
         const zipStream = new stream.PassThrough();
         console.log("📤 Creando stream para ZIP...");
 
