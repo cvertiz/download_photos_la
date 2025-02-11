@@ -3,6 +3,7 @@ const { Upload } = require("@aws-sdk/lib-storage"); // Importar Upload
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const archiver = require("archiver");
 const stream = require("stream");
+const axios = require("axios");
 const global_config = require("./config/settings.js");
 const { Client } = require("pg");
 const connectionParams = global_config.connectionParams;
@@ -10,27 +11,23 @@ const client = new Client(connectionParams);
 
 
 const s3 = new S3Client({ region: "us-east-2" });
+const QUERY_PHOTOS = `select * from business.fn_product_detail_result($1);`;
 
 exports.handler = async (event) => {
     const bucket = "dev-my-test-bucket1";
-    const folder ="3";
-    const zipKey = `zips/${folder}/fotos-${Date.now()}.zip`;
-
-    const files = ["foto1.jpg", "foto2.jpg"].map(file => `${folder}/${file}`);
-
+    const zipKey = `zips/fotos-${Date.now()}.zip`;
     console.log(connectionParams)
 
     console.log("🚀 Iniciando proceso...");
 
     try {
+        let productId = 2452;
         await client.connect();
-
-        console.log("🔌 Conectado a PostgreSQL");
+        let result = await client.query(QUERY_PHOTOS, [productId]);
+        const fileUrls  = result.rows[0].photos;
 
         const zipStream = new stream.PassThrough();
-        console.log("📤 Creando stream para ZIP...");
 
-        // Usamos `Upload` en lugar de `PutObjectCommand`
         const upload = new Upload({
             client: s3,
             params: {
@@ -44,30 +41,21 @@ exports.handler = async (event) => {
         const archive = archiver("zip", { zlib: { level: 9 } });
         archive.pipe(zipStream);
 
-        console.log("📂 Agregando archivos al ZIP...");
 
-        for (const file of files) {
-            console.log(`📥 Descargando: ${file}`);
-            const fileParams = { Bucket: bucket, Key: file };
-            const { Body } = await s3.send(new GetObjectCommand(fileParams));
+        for (const fileUrl of fileUrls) {
+            try {
+                const response = await axios.get(fileUrl, { responseType: "stream" });
 
-            if (!Body) {
-                console.error(`❌ Error: El archivo ${file} no existe en el bucket`);
-                return {
-                    statusCode: 404,
-                    body: JSON.stringify({ error: `Archivo no encontrado: ${file}` }),
-                };
+                const fileName = fileUrl.split("/").pop(); // Extrae el nombre del archivo
+                archive.append(response.data, { name: fileName });
+
+            } catch (err) {
+                console.error(`Error descargando ${fileUrl}:`, err.message);
             }
-
-            archive.append(Body, { name: file });
-            console.log(`✅ ${file} agregado al ZIP`);
         }
 
-        await archive.finalize();
-        console.log("🎯 ZIP Finalizado!");
-
-        await upload.done(); // Esperamos que el upload termine correctamente
-        console.log("📤 ZIP Subido a S3!");
+        archive.finalize();
+        upload.done(); 
 
         const signedUrl = await getSignedUrl(
             s3,
