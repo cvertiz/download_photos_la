@@ -6,6 +6,7 @@ const stream = require("stream");
 const global_config = require("./config/settings.js");
 const { Client } = require("pg");
 const connectionParams = global_config.connectionParams;
+const client = new Client(connectionParams); 
 
 
 const s3 = new S3Client({ region: "us-east-2" });
@@ -20,7 +21,6 @@ exports.handler = async (event) => {
     console.log(connectionParams)
 
     console.log("🚀 Iniciando proceso...");
-    const client = new Client(connectionParams); 
 
     try {
         await client.connect();
