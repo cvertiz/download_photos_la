@@ -18,15 +18,12 @@ exports.handler = async (event) => {
     const zipKey = `zips/fotos-${Date.now()}.zip`;
     console.log(connectionParams)
 
-    console.log("🚀 Iniciando proceso...");
 
     try {
         let body = JSON.parse(event.body);
         let productId = body.product_id;
-        console.log("🔍 Buscando fotos de los productos:", productId);
         await client.connect();
         let result = await client.query(QUERY_PHOTOS, [JSON.stringify(productId)]);
-        console.log(result.rows[0].fn_products_get_photo);
         const fileUrls = result.rows[0].fn_products_get_photo;
 
         const zipStream = new stream.PassThrough();
@@ -66,14 +63,12 @@ exports.handler = async (event) => {
             { expiresIn: 3600 }
         );
 
-        console.log("🔗 URL Generada:", signedUrl);
         await client.end();
         return {
             statusCode: 200,
             body: signedUrl,
         };
     } catch (error) {
-        console.error("❌ Error en el proceso:", error);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: error.message }),
@@ -87,7 +82,7 @@ exports.handler = async (event) => {
 
 let resp = this.handler(
     {
-        "body": "{\"product_id\": [\"238011\", \"2452\"]}"
+        "body": "{\"product_id\": [238011, 2452]}"
       }
       
   
