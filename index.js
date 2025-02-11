@@ -22,10 +22,10 @@ exports.handler = async (event) => {
 
     try {
         let body = JSON.parse(event.body);
-        
-        let productId = '["238011", "2452"]';
+        let productId = body.product_id;
+        console.log("🔍 Buscando fotos de los productos:", productId);
         await client.connect();
-        let result = await client.query(QUERY_PHOTOS, [productId]);
+        let result = await client.query(QUERY_PHOTOS, [JSON.stringify(productId)]);
         console.log(result.rows[0].fn_products_get_photo);
         const fileUrls = result.rows[0].fn_products_get_photo;
 
@@ -85,9 +85,12 @@ exports.handler = async (event) => {
 /****** TEST LOCAL ******/
 
 
-let resp = this.handler({
-    "body": `{"nombre":"Juan","apellido":"Perez"}`
-}
+let resp = this.handler(
+    {
+        "body": "{\"product_id\": [\"238011\", \"2452\"]}"
+      }
+      
+  
 );
 
 resp.then((data) => {
