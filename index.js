@@ -7,11 +7,11 @@ const axios = require("axios");
 const global_config = require("./config/settings.js");
 const { Client } = require("pg");
 const connectionParams = global_config.connectionParams;
-const client = new Client(connectionParams); 
+const client = new Client(connectionParams);
 
 
 const s3 = new S3Client({ region: "us-east-2" });
-const QUERY_PHOTOS = `select * from business.fn_product_detail_result($1);`;
+const QUERY_PHOTOS = `select * from business.fn_products_get_photo($1);`;
 
 exports.handler = async (event) => {
     const bucket = "dev-my-test-bucket1";
@@ -21,10 +21,13 @@ exports.handler = async (event) => {
     console.log("🚀 Iniciando proceso...");
 
     try {
-        let productId = 2452;
+        let body = JSON.parse(event.body);
+        
+        let productId = '["238011", "2452"]';
         await client.connect();
         let result = await client.query(QUERY_PHOTOS, [productId]);
-        const fileUrls  = result.rows[0].photos;
+        console.log(result.rows[0].fn_products_get_photo);
+        const fileUrls = result.rows[0].fn_products_get_photo;
 
         const zipStream = new stream.PassThrough();
 
@@ -55,7 +58,7 @@ exports.handler = async (event) => {
         }
 
         archive.finalize();
-        upload.done(); 
+        await upload.done();
 
         const signedUrl = await getSignedUrl(
             s3,
@@ -64,10 +67,10 @@ exports.handler = async (event) => {
         );
 
         console.log("🔗 URL Generada:", signedUrl);
-
+        await client.end();
         return {
             statusCode: 200,
-            body: JSON.stringify({ url: signedUrl }),
+            body: signedUrl,
         };
     } catch (error) {
         console.error("❌ Error en el proceso:", error);
@@ -83,11 +86,10 @@ exports.handler = async (event) => {
 
 
 let resp = this.handler({
-  "body": `{"nombre":"Juan","apellido":"Perez"}`}
+    "body": `{"nombre":"Juan","apellido":"Perez"}`
+}
 );
 
-
-
 resp.then((data) => {
-  console.info("Respuesta del Lambda:" + JSON.stringify(data));
+    console.info("Respuesta del Lambda:" + JSON.stringify(data));
 });   
